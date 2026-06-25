@@ -17,8 +17,9 @@ async function bootstrap() {
     }),
   );
 
-  await app.listen(envs.PORT);
-  console.log(`PetRadar corriendo en ${envs.PORT}`);
+  const port = process.env.PORT || 3000;
+  await app.listen(port, '0.0.0.0');
+  console.log(`PetRadar corriendo en ${port}`);
 }
 bootstrap();
   
