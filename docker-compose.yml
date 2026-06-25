@@ -1,0 +1,74 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: petradar_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-petradar}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-petradar}
+      POSTGRES_DB: ${DB_NAME:-petradar}
+    ports:
+      - '${DB_PORT:-5432}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-petradar}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: petradar_redis
+    restart: unless-stopped
+    command: >
+      sh -c '
+        if [ -n "$$REDIS_PASSWORD" ]; then
+          redis-server --requirepass "$$REDIS_PASSWORD"
+        else
+          redis-server
+        fi
+      '
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: ./petradar
+      dockerfile: Dockerfile
+    container_name: petradar_app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: ${PORT:-3000}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-petradar}
+      DB_PASSWORD: ${DB_PASSWORD:-petradar}
+      DB_NAME: ${DB_NAME:-petradar}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      MAILER_EMAIL: ${MAILER_EMAIL:-}
+      MAILER_PASSWORD: ${MAILER_PASSWORD:-}
+      MAILER_SERVICE: ${MAILER_SERVICE:-}
+      MAPBOX_TOKEN: ${MAPBOX_TOKEN:-placeholder}
+      APPLICATIONINSIGHTS_CONNECTION_STRING: ${APPLICATIONINSIGHTS_CONNECTION_STRING:-}
+    ports:
+      - '${PORT:-3000}:3000'
+
+volumes:
+  pgdata:
